@@ -12,6 +12,7 @@ import xgboost as xgb
 from sklearn.model_selection import GridSearchCV
 import matplotlib.pyplot as plt
 from sklearn.metrics import make_scorer, r2_score
+
     
 def _getData():
         
@@ -38,8 +39,23 @@ def _getData():
         df = pd.read_csv('https://raw.githubusercontent.com/smgiovan/base/master/train.csv') 
         features = df.iloc[:,0:-1]
     
-        features = features[['LotFrontage','LotArea','Street','OverallQual',
-                            'OverallCond','YearBuilt','YearRemodAdd']]
+        features = features[['MSSubClass', 'MSZoning', 'LotFrontage', 'LotArea', 'Street',
+       'Alley', 'LotShape', 'LandContour', 'Utilities', 'LotConfig',
+       'LandSlope', 'Neighborhood', 'Condition1', 'Condition2', 'BldgType',
+       'HouseStyle', 'OverallQual', 'OverallCond', 'YearBuilt', 'YearRemodAdd',
+       'RoofStyle', 'RoofMatl', 'Exterior1st', 'Exterior2nd', 'MasVnrType',
+       'MasVnrArea', 'ExterQual', 'ExterCond', 'Foundation', 'BsmtQual',
+       'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinSF1',
+       'BsmtFinType2', 'BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF', 'Heating',
+       'HeatingQC', 'CentralAir', 'Electrical', '1stFlrSF', '2ndFlrSF',
+       'LowQualFinSF', 'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath',
+       'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'KitchenQual',
+       'TotRmsAbvGrd', 'Functional', 'Fireplaces', 'FireplaceQu', 'GarageType',
+       'GarageYrBlt', 'GarageFinish', 'GarageCars', 'GarageArea', 'GarageQual',
+       'GarageCond', 'PavedDrive', 'WoodDeckSF', 'OpenPorchSF',
+       'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC',
+       'Fence', 'MiscFeature', 'MiscVal', 'MoSold', 'YrSold', 'SaleType',
+       'SaleCondition']]
     
         features = pd.get_dummies(features)
         
@@ -63,9 +79,11 @@ def rmsle(y0, y):
     return np.sqrt(np.mean(np.power(np.log1p(y)-np.log1p(y0), 2)))
  
 def customScoreFunc(Yactual, Ypred):
-    return r2_score(Yactual,Ypred)
-    #TODO: add rmsle function 
-    #return rmsle(Yactual, Ypred)
+    
+    #return r2_score(Yactual,Ypred)
+    return rmsle(Yactual, Ypred)
+
+scorer = make_scorer(customScoreFunc,greater_is_better=False)
 
 
 
@@ -133,8 +151,6 @@ def GBgridSearch(Xtrain,Ytrain,regressor_params=None,param_grid={}):
 
     kfold = 3
     
-    # set scorer 
-    scorer = make_scorer(customScoreFunc)
     
     rf = getRegressor(regressor_params)
 
@@ -196,7 +212,9 @@ if __name__ == '__main__':
         print("%f (%f) with: %r" % (mean, stdev, param))
     print('')
     
-    print("Score on test data (1-u/v): {0:1.3f}".format(best_grid.score(Xtest,Ytest)))
+    print("Score: {0:1.3f}".format(customScoreFunc(Ytest,best_grid.predict(Xtest))))
+    
+    print("Explained Variance(1-u/v): {0:1.3f}".format(best_grid.score(Xtest,Ytest)))
     
     print("Correlation Coeff.: %f" % np.corrcoef(Ytest,best_grid.predict(Xtest))[0,1])
     
@@ -219,10 +237,10 @@ if __name__ == '__main__':
     plotTestResults(test_results,Ynames)
 
     # retrain model using all data
-    trained_model = GBgridSearch(X,Y,
-                               regressor_params=best_grid.get_params(),
-                               param_grid={}
-                               )
+   # trained_model = GBgridSearch(X,Y,
+   #                            regressor_params=best_grid.get_params(),
+   #                            param_grid={}
+   #                            )
     
     
     #xgb.plot_tree(best_grid,
