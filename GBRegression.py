@@ -59,20 +59,48 @@ def _getData():
     
         features = pd.get_dummies(features)
         
+        df2 = pd.read_csv('https://raw.githubusercontent.com/smgiovan/base/master/test.csv') 
+        
+        features2 = df2[['MSSubClass', 'MSZoning', 'LotFrontage', 'LotArea', 'Street',
+       'Alley', 'LotShape', 'LandContour', 'Utilities', 'LotConfig',
+       'LandSlope', 'Neighborhood', 'Condition1', 'Condition2', 'BldgType',
+       'HouseStyle', 'OverallQual', 'OverallCond', 'YearBuilt', 'YearRemodAdd',
+       'RoofStyle', 'RoofMatl', 'Exterior1st', 'Exterior2nd', 'MasVnrType',
+       'MasVnrArea', 'ExterQual', 'ExterCond', 'Foundation', 'BsmtQual',
+       'BsmtCond', 'BsmtExposure', 'BsmtFinType1', 'BsmtFinSF1',
+       'BsmtFinType2', 'BsmtFinSF2', 'BsmtUnfSF', 'TotalBsmtSF', 'Heating',
+       'HeatingQC', 'CentralAir', 'Electrical', '1stFlrSF', '2ndFlrSF',
+       'LowQualFinSF', 'GrLivArea', 'BsmtFullBath', 'BsmtHalfBath', 'FullBath',
+       'HalfBath', 'BedroomAbvGr', 'KitchenAbvGr', 'KitchenQual',
+       'TotRmsAbvGrd', 'Functional', 'Fireplaces', 'FireplaceQu', 'GarageType',
+       'GarageYrBlt', 'GarageFinish', 'GarageCars', 'GarageArea', 'GarageQual',
+       'GarageCond', 'PavedDrive', 'WoodDeckSF', 'OpenPorchSF',
+       'EnclosedPorch', '3SsnPorch', 'ScreenPorch', 'PoolArea', 'PoolQC',
+       'Fence', 'MiscFeature', 'MiscVal', 'MoSold', 'YrSold', 'SaleType',
+       'SaleCondition']]
+    
+        features2 = pd.get_dummies(features2)
+        
+        features = features[list(features2)]
+        features2 = features2[list(features)]
+        
         labels = df.iloc[:,-1]
         Y = np.array(labels)
         X = np.array(features)
         Xnames = list(features.columns)
         Ynames = df.columns[-1]
     
+        Xreal = np.array(features2)
+        
+    
     else:
         print('you need to define your dataset..')
     
     # Split the data into training and testing sets
     Xtrain, Xtest, Ytrain, Ytest = train_test_split(
-        X, Y, test_size = 0.25, random_state = 42)
+        X, Y, test_size = 0.25, random_state = 0)
     
-    return Xtrain, Xtest, Ytrain, Ytest, Xnames, X, Y, Ynames
+    return Xtrain, Xtest, Ytrain, Ytest, Xnames, X, Y, Ynames, Xreal
 
 def rmsle(y0, y):
     assert len(y) == len(y0)
@@ -132,10 +160,10 @@ def getRegressorParams():
 def getGridParams():
     
     param_grid = { 
-                  'colsample_bytree' : [0.35,0.5,0.65],
-                  'max_depth' : [2,3,4], 
-                  'learning_rate': [1e-2,5e-2,1e-1],
-                  'n_estimators': [50,100,150,300,500]
+                  'colsample_bytree' : [0.45,0.5],
+                  'max_depth' : [4,5,6], 
+                  'learning_rate': [0.05],
+                  'n_estimators': [475]
                   }
           
     #param_grid = { 
@@ -158,7 +186,7 @@ def GBgridSearch(Xtrain,Ytrain,regressor_params=None,param_grid={}):
             estimator = rf, param_grid = param_grid, 
             cv = kfold,
             n_jobs = 1, 
-            verbose = 1,
+            verbose = 0,
             scoring=scorer
             )
 
@@ -194,7 +222,7 @@ def plotTestResults(test_results,Ynames):
  #%%   
 if __name__ == '__main__':
         
-    Xtrain, Xtest, Ytrain, Ytest, Xnames, X, Y, Ynames = _getData()
+    Xtrain, Xtest, Ytrain, Ytest, Xnames, X, Y, Ynames, Xreal = _getData()
     
     grid_search = GBgridSearch(Xtrain,Ytrain,
                                regressor_params=getRegressorParams(),
@@ -204,7 +232,6 @@ if __name__ == '__main__':
     best_grid = grid_search.best_estimator_
     
     # summarize grid search
-    print("Best: %f using %s" % (grid_search.best_score_, grid_search.best_params_))
     means = grid_search.cv_results_['mean_test_score']
     stds = grid_search.cv_results_['std_test_score']
     params = grid_search.cv_results_['params']
@@ -212,7 +239,9 @@ if __name__ == '__main__':
         print("%f (%f) with: %r" % (mean, stdev, param))
     print('')
     
-    print("Score: {0:1.3f}".format(customScoreFunc(Ytest,best_grid.predict(Xtest))))
+    print("Best: %f using %s" % (grid_search.best_score_, grid_search.best_params_))
+    
+    print("Score on test data: {0:1.3f}".format(customScoreFunc(Ytest,best_grid.predict(Xtest))))
     
     print("Explained Variance(1-u/v): {0:1.3f}".format(best_grid.score(Xtest,Ytest)))
     
@@ -236,12 +265,19 @@ if __name__ == '__main__':
     test_results['ind'] = range(len(Ytest))
     plotTestResults(test_results,Ynames)
 
+
     # retrain model using all data
-   # trained_model = GBgridSearch(X,Y,
-   #                            regressor_params=best_grid.get_params(),
-   #                            param_grid={}
-   #                            )
+    trained_model = GBgridSearch(X,Y,
+                               regressor_params=best_grid.get_params(),
+                               param_grid={}
+                               )
     
+    Yreal_prediction = trained_model.predict(Xreal)
+    df = pd.DataFrame(Yreal_prediction)
+    df = df.reset_index()
+    df.rename(index=str, columns={"index": "Id", 0: "SalePrice"},inplace=True)
+    df['Id'] += 1461
+    df.to_csv('Submit1.csv',index=False)
     
     #xgb.plot_tree(best_grid,
     #              num_trees=best_grid.get_params(deep=True).get('n_estimators')-1,
